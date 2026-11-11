@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#C0BEB6" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#2F3331" media="(prefers-color-scheme: dark)" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f3331'/%3E%3Crect x='4' y='4' width='24' height='24' rx='3' fill='%23e3ddcd'/%3E%3Cpath fill='%238b8880' d='M4 20h12v4H4zm8-8h4v8h-4zm4 0h8v4h-8z'/%3E%3Cpath fill='%23f6e84a' d='M20 20h4v4h-4z'/%3E%3C/svg%3E" />
+  <title>arcazooly</title>
+  <style>
+    /* ── arcazooly shared style ─────────────────────────────────────────────
+       Palette and boxes follow chessooly (and morezagolchin.github.io).
+       Keep this block the same in every page; page styles go after it. */
+
+    :root {
+      color-scheme: light dark;
+
+      --bg: #c0beb6;
+      --surface: #e3ddcd;
+      --border: rgb(139 136 128 / 0.45); /* #8b8880 */
+      /* Border around the top bar, panels and boards. */
+      --section-border: 5px solid var(--border);
+      --text: #2f3331;
+      /* #2f3331 and #8b8880 mixed: #8b8880 alone is too faint for text on #e3ddcd. */
+      --muted: #5d5e59;
+      /* Links and focus rings. */
+      --link: #2f3331;
+      /* Fills only (title tab, primary buttons): too light for text on light backgrounds. */
+      --accent: #f6e84a;
+      --on-accent: #2f3331;
+      /* Plain buttons and hovered items. */
+      --control: rgb(139 136 128 / 0.22);
+      --control-hover: rgb(139 136 128 / 0.38);
+      --pattern: rgb(139 136 128 / 0.3);
+
+      /* Spacing between the boxes and the window edges. */
+      --gap: clamp(1.25rem, 2vw, 1.75rem);
+      /* Padding inside the boxes. */
+      --pad: clamp(1rem, 2vw, 1.25rem);
+      --radius: 8px;
+      /* Corners of things inset in a box, like the tabs in the top bar. */
+      --inset: 0.3rem;
+      --inner-radius: calc(var(--radius) - var(--inset));
+      --shell: 960px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #2f3331;
+        --surface: #383c39; /* #2f3331 lifted slightly toward #8b8880 */
+        --border: rgb(139 136 128 / 0.3);
+        --text: #e3ddcd;
+        --muted: #c0beb6;
+        --link: #f6e84a;
+        --control: rgb(139 136 128 / 0.2);
+        --control-hover: rgb(139 136 128 / 0.34);
+        --pattern: rgb(139 136 128 / 0.14);
+      }
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 1rem/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    a {
+      color: var(--link);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 0.2em;
+    }
+
+    a:hover {
+      text-decoration-thickness: 2px;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--link);
+      outline-offset: 3px;
+      border-radius: 2px;
+    }
+
+    /* Background pattern: fixed to the viewport, so the page scrolls over it.
+       Filled by the shared script at the end of the page. */
+    .pattern-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      padding: 0.25rem 0.5rem;
+      color: var(--pattern);
+      font: 1.125rem/1.6 'Segoe UI Symbol', 'Apple Symbols', 'Noto Sans Symbols 2', 'DejaVu Sans', sans-serif;
+      letter-spacing: 0.45em;
+      /* Rows break between any two shapes (break-all alone doesn't, for these symbols). */
+      word-break: break-all;
+      line-break: anywhere;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* Wider than the window, so every row runs past the right edge and is cut off there. */
+    .pattern-bg > div {
+      width: calc(100% + 3em);
+    }
+
+    /* A box: the top bar, panels and game boards. */
+    .box {
+      background: var(--surface);
+      border: var(--section-border);
+      border-radius: var(--radius);
+    }
+
+    .topbar,
+    .shell {
+      position: relative;
+      z-index: 1;
+      width: min(var(--shell), 100% - 2 * var(--gap));
+      margin: 0 auto;
+    }
+
+    /* Laid out like a tab bar, with the page name as the selected tab. */
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.25rem 0.9rem;
+      margin-top: var(--gap);
+      margin-bottom: calc(var(--gap) / 2);
+      padding: var(--inset);
+    }
+
+    .topbar h1 {
+      margin: 0;
+      padding: 0.45rem 0.9rem;
+      background: var(--accent);
+      border-radius: var(--inner-radius);
+      color: var(--on-accent);
+      font-size: 1.05rem;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    /* The "back" link on game pages: an unselected tab before the title. */
+    .topbar .back {
+      align-self: stretch;
+      display: flex;
+      align-items: center;
+      margin-right: -0.5rem;
+      padding: 0 0.9rem;
+      background: var(--control);
+      border-radius: var(--inner-radius);
+      color: var(--text);
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .topbar .back:hover {
+      background: var(--control-hover);
+    }
+
+    .topbar .meta {
+      color: var(--muted);
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .shell {
+      margin-bottom: var(--gap);
+    }
+
+    .panel {
+      padding: var(--pad);
+    }
+
+    .label {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    button {
+      margin: 0;
+      padding: 0.45rem 0.85rem;
+      background: var(--control);
+      border: 0;
+      border-radius: var(--inner-radius);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      line-height: 1.4;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: var(--control-hover);
+    }
+
+    button:focus-visible {
+      outline-offset: 1px;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: var(--on-accent);
+    }
+
+    button.primary:hover {
+      background: color-mix(in srgb, var(--accent) 88%, var(--text));
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    button:disabled:hover {
+      background: var(--control);
+    }
+
+    kbd {
+      display: inline-block;
+      min-width: 1.7em;
+      padding: 0 0.35rem;
+      background: var(--control);
+      border: 1px solid var(--border);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      font: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    /* Only with a touch screen / only with a mouse and keyboard. */
+    @media not all and (pointer: coarse) {
+      .touch-only {
+        display: none !important;
+      }
+    }
+
+    @media (pointer: coarse) {
+      .key-only {
+        display: none !important;
+      }
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      a,
+      button {
+        transition: background-color 0.15s ease, color 0.15s ease;
+      }
+    }
+
+    /* ── Home page ──────────────────────────────────────────────────────── */
+
+    .home {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .games {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+      gap: 0.5rem;
+      margin: 0.25rem 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .game-card {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      height: 100%;
+      padding: 0.7rem 0.9rem 0.7rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .game-card:hover {
+      background: var(--control);
+    }
+
+    .game-icon {
+      flex-shrink: 0;
+      width: 56px;
+      height: 56px;
+      border-radius: var(--inner-radius);
+    }
+
+    .game-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      min-width: 0;
+    }
+
+    .game-name {
+      font-size: 1.05rem;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .game-meta {
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.35;
+    }
+
+    .game-best {
+      margin-top: 0.2rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body>
+  <div class="pattern-bg" aria-hidden="true"></div>
+
+  <header class="topbar box">
+    <h1>arcazooly</h1>
+    <span class="meta">Small games for the browser</span>
+  </header>
+
+  <main class="shell">
+    <section class="home panel box">
+      <h2 class="label">Games</h2>
+      <p class="hint">Each game runs right here in your browser. Your best scores are kept on this device.</p>
+
+      <!-- One <li> per game. data-best is the game's id: the same one its page saves its best score under. -->
+      <ul class="games">
+        <li>
+          <a class="game-card" href="snake/index.html">
+            <svg class="game-icon" viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true">
+              <rect width="8" height="8" fill="#e3ddcd" />
+              <path fill="#d8d2c1" d="M1 0h1v1H1zm2 0h1v1H3zm2 0h1v1H5zm2 0h1v1H7zM0 1h1v1H0zm2 0h1v1H2zm2 0h1v1H4zm2 0h1v1H6zM1 2h1v1H1zm2 0h1v1H3zm2 0h1v1H5zm2 0h1v1H7zM0 3h1v1H0zm2 0h1v1H2zm2 0h1v1H4zm2 0h1v1H6zM1 4h1v1H1zm2 0h1v1H3zm2 0h1v1H5zm2 0h1v1H7zM0 5h1v1H0zm2 0h1v1H2zm2 0h1v1H4zm2 0h1v1H6zM1 6h1v1H1zm2 0h1v1H3zm2 0h1v1H5zm2 0h1v1H7zM0 7h1v1H0zm2 0h1v1H2zm2 0h1v1H4zm2 0h1v1H6z" />
+              <path fill="#4d9065" d="M1 5h3v1H1zm2-2h1v2H3zm1 0h2v1H4z" />
+              <path fill="#c44e29" d="M5 5h1v1H5z" />
+            </svg>
+            <span class="game-text">
+              <span class="game-name">Snake</span>
+              <span class="game-meta">Eat, grow, and don't run into the walls or yourself.</span>
+              <span class="game-best" data-best="snake"></span>
+            </span>
+          </a>
+        </li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    // ── arcazooly shared script ───────────────────────────────────────────
+    // Keep this block the same in every page; page scripts go after it.
+
+    // Best scores, saved in localStorage as "arcazooly:<game>:best".
+    // localStorage can be missing or blocked (private windows, strict settings): then scores just aren't kept.
+    const bestScore = {
+      get(game) {
+        try {
+          return Number(localStorage.getItem(`arcazooly:${game}:best`)) || 0;
+        } catch {
+          return 0;
+        }
+      },
+      set(game, score) {
+        try {
+          localStorage.setItem(`arcazooly:${game}:best`, String(score));
+        } catch {}
+      },
+    };
+
+    // Fills the fixed background with random arcade shapes, like the chess pieces on chessooly.
+    // U+FE0E keeps the heart a plain glyph: some systems draw ♥ alone as an emoji.
+    (() => {
+      const GLYPHS = ['▲', '●', '■', '◆', '★', '♥︎'];
+      const bg = document.querySelector('.pattern-bg');
+      if (!bg) return;
+      // The shapes go in an inner box wider than the window, so each row runs past
+      // the right edge instead of stopping at the last whole shape that fits.
+      const el = bg.appendChild(document.createElement('div'));
+      let text = '';
+      let count = 0;
+
+      // Measure the narrowest shape in the background's font to work out how many fit.
+      function cellSize() {
+        const probe = document.createElement('span');
+        probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap';
+        el.append(probe);
+        let width = Infinity;
+        for (const glyph of GLYPHS) {
+          probe.textContent = glyph.repeat(20);
+          width = Math.min(width, probe.getBoundingClientRect().width / 20);
+        }
+        probe.remove();
+        const height = parseFloat(getComputedStyle(el).lineHeight) || 28;
+        return { width: width || 16, height };
+      }
+
+      // Only ever extend the text, so the pattern doesn't reshuffle on resize.
+      function fill() {
+        const { width, height } = cellSize();
+        const overhang = el.offsetWidth - bg.clientWidth;
+        const w = Math.max(innerWidth, screen.width) + overhang;
+        const h = Math.max(innerHeight, screen.height);
+        const needed = Math.ceil(w / width + 2) * Math.ceil(h / height + 2);
+        if (needed <= count) return;
+        let more = '';
+        for (; count < needed; count++) more += GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+        text += more;
+        el.textContent = text;
+      }
+
+      fill();
+      addEventListener('resize', fill);
+    })();
+
+    // ── Home page ─────────────────────────────────────────────────────────
+
+    // Show each game's best score. pageshow also runs when coming back from a game with the Back button.
+    function showBestScores() {
+      for (const el of document.querySelectorAll('[data-best]')) {
+        const best = bestScore.get(el.dataset.best);
+        el.textContent = best ? `Best: ${best}` : 'Not played yet';
+      }
+    }
+
+    addEventListener('pageshow', showBestScores);
+  </script>
+</body>
+</html>
